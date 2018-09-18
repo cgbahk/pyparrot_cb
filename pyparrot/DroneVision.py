@@ -22,6 +22,7 @@ from os.path import join
 import inspect
 from pyparrot.utils.NonBlockingStreamReader import NonBlockingStreamReader
 
+
 class DroneVision:
     def __init__(self, drone_object, is_bebop, buffer_size=200):
         """
@@ -43,27 +44,13 @@ class DroneVision:
 
         # setup the thread for monitoring the vision (but don't start it until we connect in open_video)
         self.vision_thread = threading.Thread(target=self._buffer_vision,
-                                              args=(buffer_size, ))
+                                              args=(buffer_size,))
         self.user_vision_thread = None
         self.vision_running = True
 
         # the vision thread starts opencv on these files.  That will happen inside the other thread
         # so here we just sent the image index to 1 ( to start)
         self.image_index = 1
-
-
-    def set_user_callback_function(self, user_callback_function=None, user_callback_args=None):
-        """
-        Set the (optional) user callback function for handling the new vision frames.  This is
-        run in a separate thread that starts when you start the vision buffering
-
-        :param user_callback_function: function
-        :param user_callback_args: arguments to the function
-        :return:
-        """
-        self.user_vision_thread = threading.Thread(target=self._user_callback,
-                                                   args=(user_callback_function, user_callback_args))
-
 
     def open_video(self):
         """
@@ -92,25 +79,30 @@ class DroneVision:
         if (shortPathIndex == -1):
             # handle Windows paths
             shortPathIndex = fullPath.rfind("\\")
-        print(shortPathIndex)
+        # print(shortPathIndex)
         shortPath = fullPath[0:shortPathIndex]
         self.imagePath = join(shortPath, "images")
         self.utilPath = join(shortPath, "utils")
-        print(self.imagePath)
-        print(self.utilPath)
+        # print(self.imagePath)
+        # print(self.utilPath)
+
+        # delete existing images
+        for fname in os.listdir(self.imagePath):
+            if fname.startswith("image_"):
+                os.remove(os.path.join(self.imagePath, fname))
 
         # the first step is to open the rtsp stream through ffmpeg first
         # this step creates a directory full of images, one per frame
         print("Opening ffmpeg")
         if (self.is_bebop):
-            cmdStr = "ffmpeg -protocol_whitelist \"file,rtp,udp\" -i %s/bebop.sdp -r 30 image_" % self.utilPath + "%03d.png &"
+            cmdStr = "ffmpeg -protocol_whitelist \"file,rtp,udp\" -i %s/bebop.sdp -r 30 image_" % self.utilPath + "%06d.png &"
             print(cmdStr)
             self.ffmpeg_process = \
                 subprocess.Popen(cmdStr, shell=True, cwd=self.imagePath, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         else:
             self.ffmpeg_process = \
-                subprocess.Popen("ffmpeg -i rtsp://192.168.99.1/media/stream2 -r 30 image_%03d.png &",
-                               shell=True, cwd=self.imagePath, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+                subprocess.Popen("ffmpeg -i rtsp://192.168.99.1/media/stream2 -r 30 image_%06d.png &",
+                                 shell=True, cwd=self.imagePath, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         # immediately start the vision buffering (before we even know if it succeeded since waiting puts us behind)
         self._start_video_buffering()
@@ -119,7 +111,6 @@ class DroneVision:
         print("Opening non-blocking readers")
         stderr_reader = NonBlockingStreamReader(self.ffmpeg_process.stderr)
         stdout_reader = NonBlockingStreamReader(self.ffmpeg_process.stdout)
-
 
         # look for success in the stdout
         # If it starts correctly, it will have the following output in the stdout
@@ -173,27 +164,6 @@ class DroneVision:
         if (self.user_vision_thread is not None):
             self.user_vision_thread.start()
 
-    def _user_callback(self, user_vision_function, user_args):
-        """
-        Internal method to call the user vision functions
-
-        :param user_vision_function: user callback function to handle vision
-        :param user_args: optional arguments to the user callback function
-        :return:
-        """
-
-        while (self.vision_running):
-            if (self.new_frame):
-                user_vision_function(user_args)
-
-                #reset the bit for a new frame
-                self.new_frame = False
-
-            # put the thread back to sleep for fps
-            # sleeping shorter to ensure we stay caught up on frames
-            time.sleep(1.0 / (3.0 * self.fps))
-
-
     def _buffer_vision(self, buffer_size):
         """
         Internal method to save valid video captures from the camera fps times a second
@@ -209,7 +179,7 @@ class DroneVision:
         # so find the latest image in the directory and set the index to that
         found_latest = False
         while (not found_latest):
-            path = "%s/image_%03d.png" % (self.imagePath, self.image_index)
+            path = "%s/image_%06d.png" % (self.imagePath, self.image_index)
             if (os.path.exists(path)) and (not os.path.isfile(path)):
                 # just increment through it (don't save any of these first images)
                 self.image_index = self.image_index + 1
@@ -221,13 +191,13 @@ class DroneVision:
             # grab the latest image from the ffmpeg stream
             try:
                 # make the name for the next image
-                path = "%s/image_%03d.png" % (self.imagePath, self.image_index)
+                path = "%s/image_%06d.png" % (self.imagePath, self.image_index)
                 if (not os.path.exists(path)) and (not os.path.isfile(path)):
-                    #print("File %s doesn't exist" % (path))
-                    #print(os.listdir(self.imagePath))
+                    # print("File %s doesn't exist" % (path))
+                    # print(os.listdir(self.imagePath))
                     continue
 
-                img = cv2.imread(path,1)
+                img = cv2.imread(path, 1)
 
                 # sometimes cv2 returns a None object so skip putting those in the array
                 if (img is not None):
@@ -236,12 +206,12 @@ class DroneVision:
                     # got a new image, save it to the buffer directly
                     self.buffer_index += 1
                     self.buffer_index %= buffer_size
-                    #print video_frame
+                    # print video_frame
                     self.buffer[self.buffer_index] = img
                     self.new_frame = True
 
             except cv2.error:
-                #Assuming its an empty image, so decrement the index and try again.
+                # Assuming its an empty image, so decrement the index and try again.
                 # print("Trying to read an empty png. Let's wait and try again.")
                 self.image_index = self.image_index - 1
                 continue
@@ -249,7 +219,38 @@ class DroneVision:
             # put the thread back to sleep for faster than fps to ensure we stay on top of the frames
             # coming in from ffmpeg
             time.sleep(1.0 / (2.0 * self.fps))
-        
+
+    def _user_callback(self, user_vision_function, user_args):
+        """
+        Internal method to call the user vision functions
+
+        :param user_vision_function: user callback function to handle vision
+        :param user_args: optional arguments to the user callback function
+        :return:
+        """
+
+        while (self.vision_running):
+            if (self.new_frame):
+                user_vision_function(user_args)
+
+                # reset the bit for a new frame
+                self.new_frame = False
+
+            # put the thread back to sleep for fps
+            # sleeping shorter to ensure we stay caught up on frames
+            # time.sleep(1.0 / (3.0 * self.fps))
+
+    def set_user_callback_function(self, user_callback_function=None, user_callback_args=None):
+        """
+        Set the (optional) user callback function for handling the new vision frames.  This is
+        run in a separate thread that starts when you start the vision buffering
+
+        :param user_callback_function: function
+        :param user_callback_args: arguments to the function
+        :return:
+        """
+        self.user_vision_thread = threading.Thread(target=self._user_callback,
+                                                   args=(user_callback_function, user_callback_args))
 
     def get_latest_valid_picture(self):
         """
@@ -269,6 +270,8 @@ class DroneVision:
 
         # kill the ffmpeg subprocess
         self.ffmpeg_process.kill()
+
+
 
         # send the command to kill the vision stream (bebop only)
         if (self.is_bebop):
