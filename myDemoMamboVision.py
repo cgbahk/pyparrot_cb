@@ -7,13 +7,14 @@ from pyparrot.Minidrone import Mambo
 from pyparrot.DroneVision import DroneVision
 import threading
 import cv2
+import cv2.aruco as aruco
 import time
-from matplotlib import pyplot as plt
 import inspect
 from os.path import join
+import numpy as np
 
 # set this to true if you want to fly for the demo
-testFlying = True
+testFlying = False
 
 
 class UserVision:
@@ -40,6 +41,7 @@ class UserVision:
 
     def show_pictures(self, args):
         img = self.vision.get_latest_valid_picture()
+        # img = self.vision.buffer[self.vision.buffer_index]
         if img is not None:
             # print(self.index)
             self.index += 1
@@ -101,6 +103,54 @@ class UserVision:
             print("disconnecting")
             mambo.disconnect()
 
+    def show_corner(self, args):
+        img = self.vision.get_latest_valid_picture()
+        if img is None:
+            return
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray = np.float32(gray)
+        dst = cv2.cornerHarris(gray, 2, 3, 0.04)
+        # result is dilated for marking the corners, not important
+        dst = cv2.dilate(dst, None)
+        # Threshold for an optimal value, it may vary depending on the image.
+        img[dst > 0.01 * dst.max()] = [0, 0, 255]
+
+        cv2.imshow('image', img)
+        cv2.waitKey(1)
+
+    def detect_aruco(self,args):
+        img = self.vision.get_latest_valid_picture()
+        if img is None:
+            return
+
+        # print(frame.shape) #480x640
+        # Our operations on the frame come here
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)  # todo: optimize
+        parameters = aruco.DetectorParameters_create()
+
+        # print(parameters)
+
+        '''    detectMarkers(...)
+            detectMarkers(image, dictionary[, corners[, ids[, parameters[, rejectedI
+            mgPoints]]]]) -> corners, ids, rejectedImgPoints
+            '''
+        # lists of ids and the corners belonging to each id
+        corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+        # print(corners)
+
+        # It's working.
+        # my problem was that the cellphone put black all around it. The algorithm
+        # depends very much upon finding rectangular black blobs
+
+        aruco.drawDetectedMarkers(img, corners, ids, (0, 0, 255))
+
+        # print(rejectedImgPoints)
+        # Display the resulting frame
+        cv2.imshow('image', img)
+        cv2.waitKey(1)
+
     def get_data_path(self):
         full_path = inspect.getfile(cv2)
         short_path_index = full_path.rfind("/")
@@ -129,7 +179,7 @@ if success:
     print("Preparing to open vision")
     mamboVision = DroneVision(mambo, is_bebop=False, buffer_size=3)
     userVision = UserVision(mamboVision)
-    mamboVision.set_user_callback_function(userVision.show_pictures_with_face, user_callback_args=None)
+    mamboVision.set_user_callback_function(userVision.detect_aruco, user_callback_args=None)
     success = mamboVision.open_video()
     print("Success in opening vision is %s" % success)
 

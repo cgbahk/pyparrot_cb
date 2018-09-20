@@ -9,3 +9,6 @@
 * maneuvering (ref: yong hyun)
 * sensor data
 * qr code
+
+### opencv
+* camera calibration

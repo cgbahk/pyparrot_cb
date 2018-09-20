@@ -11,6 +11,7 @@ from pyparrot.networking.wifiConnection import WifiConnection
 
 try:
     from pyparrot.networking.bleConnection import BLEConnection
+
     BLEAvailable = True
 except:
     BLEAvailable = False
@@ -215,7 +216,7 @@ class MinidroneSensors:
         my_str = "mambo state: battery %d, " % self.battery
         my_str += "flying state is %s, " % self.flying_state
         my_str += "speed (x, y, z) and ts is (%f, %f, %f) at %f " % (
-        self.speed_x, self.speed_y, self.speed_z, self.speed_ts)
+            self.speed_x, self.speed_y, self.speed_z, self.speed_ts)
         if (self.altitude_ts > -1):
             my_str += "altitude (m) %f and ts is %f " % (self.altitude, self.altitude_ts)
 
@@ -309,6 +310,11 @@ class Minidrone:
             self.drone_connection = WifiConnection(self, drone_type="Mambo")
             # initialize groundcam
             self.groundcam = MamboGroundcam()
+            # groundcam delete
+            list = self.groundcam.get_groundcam_pictures_names()
+            print("deleting pictures")
+            for file in list:
+                self.groundcam._delete_file(file)
         else:
             if (BLEAvailable):
                 self.drone_connection = BLEConnection(address, self)
@@ -525,21 +531,21 @@ class Minidrone:
 
     def take_picture(self):
         """
-        Ask the drone to take a picture also checks how many frames are on there, if there are ore than 35 it deletes one
-        If connected via Wifi it
+        Ask the drone to take a picture also checks how many frames are on there, if there are more than 35 it deletes one
         If it is connected via WiFi it also deletes all frames on the Mambo once there are more than 35,
         since after there are 40 the next ones are ignored
         :return: True if the command was sent and False otherwise
         """
-        if self.use_wifi:
-            list = self.groundcam.get_groundcam_pictures_names()
-            if len(list) > 35:  # if more than 35 pictures on the Mambo delete all
-                print("deleting")
-                for file in list:
-                    self.groundcam._delete_file(file)
+        # if self.use_wifi:
+        #     list = self.groundcam.get_groundcam_pictures_names()
+        #     # if len(list) > 35:  # if more than 35 pictures on the Mambo delete all
+        #     print("deleting")
+        #     for file in list:
+        #         self.groundcam._delete_file(file)
 
         command_tuple = self.command_parser.get_command_tuple("minidrone", "MediaRecord", "PictureV2")
         return self.drone_connection.send_noparam_command_packet_ack(command_tuple)
+
 
     def ask_for_state_update(self):
         """
@@ -550,6 +556,7 @@ class Minidrone:
         """
         command_tuple = self.command_parser.get_command_tuple("common", "Common", "AllStates")
         return self.drone_connection.send_noparam_command_packet_ack(command_tuple)
+
 
     def _ensure_fly_command_in_range(self, value):
         """
@@ -564,6 +571,7 @@ class Minidrone:
             return 100
         else:
             return int(value)
+
 
     def fly_direct(self, roll, pitch, yaw, vertical_movement, duration=None):
         """
@@ -601,6 +609,7 @@ class Minidrone:
         else:
             self.drone_connection.send_pcmd_command(command_tuple, my_roll, my_pitch, my_yaw, my_vertical, duration)
 
+
     def open_claw(self):
         """
         Open the claw - note not supposed under wifi since the camera takes the place of the claw
@@ -618,6 +627,7 @@ class Minidrone:
         # print enum_tuple
 
         return self.drone_connection.send_enum_command_packet_ack(command_tuple, enum_tuple, self.sensors.claw_id)
+
 
     def close_claw(self):
         """
@@ -638,6 +648,7 @@ class Minidrone:
 
         return self.drone_connection.send_enum_command_packet_ack(command_tuple, enum_tuple, self.sensors.claw_id)
 
+
     def set_max_vertical_speed(self, value):
         """
         Sets the maximum vertical speed in m/s.  Unknown what the true maximum is but
@@ -656,6 +667,7 @@ class Minidrone:
         param_type_tuple = ['float']
         return self.drone_connection.send_param_command_packet(command_tuple, param_tuple, param_type_tuple)
 
+
     def set_max_tilt(self, value):
         """
         Sets the maximum tilt in degrees.  Ensures you only set positive values.
@@ -673,6 +685,7 @@ class Minidrone:
         param_type_tuple = ['float']
         return self.drone_connection.send_param_command_packet(command_tuple, param_tuple, param_type_tuple)
 
+
     def emergency(self):
         """
         Sends the emergency command to the mambo.  Gets the codes for it from the xml files.  Ensures the
@@ -682,6 +695,7 @@ class Minidrone:
         """
         command_tuple = self.command_parser.get_command_tuple("minidrone", "Piloting", "Emergency")
         self.drone_connection.send_noparam_command_packet_ack(command_tuple)
+
 
     def safe_emergency(self, timeout):
         """
@@ -699,6 +713,7 @@ class Minidrone:
         # now wait until it touches ground before returning
         while ((self.sensors.flying_state != "landed") and (time.time() - start_time < timeout)):
             self.smart_sleep(1)
+
 
     def flat_trim(self):
         """

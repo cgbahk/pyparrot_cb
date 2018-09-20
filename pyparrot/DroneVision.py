@@ -95,13 +95,13 @@ class DroneVision:
         # this step creates a directory full of images, one per frame
         print("Opening ffmpeg")
         if (self.is_bebop):
-            cmdStr = "ffmpeg -protocol_whitelist \"file,rtp,udp\" -i %s/bebop.sdp -r 30 image_" % self.utilPath + "%06d.png &"
+            cmdStr = "ffmpeg -protocol_whitelist \"file,rtp,udp\" -i %s/bebop.sdp -r 30 image_" % self.utilPath + "%06d.bmp &"
             print(cmdStr)
             self.ffmpeg_process = \
                 subprocess.Popen(cmdStr, shell=True, cwd=self.imagePath, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         else:
             self.ffmpeg_process = \
-                subprocess.Popen("ffmpeg -i rtsp://192.168.99.1/media/stream2 -r 30 image_%06d.png &",
+                subprocess.Popen("ffmpeg -i rtsp://192.168.99.1/media/stream2 -r 30 image_%06d.bmp &",
                                  shell=True, cwd=self.imagePath, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
         # immediately start the vision buffering (before we even know if it succeeded since waiting puts us behind)
@@ -115,7 +115,7 @@ class DroneVision:
         # look for success in the stdout
         # If it starts correctly, it will have the following output in the stdout
         # Stream mapping:
-        #   Stream #0:0 -> #0:0 (h264 (native) -> png (native))
+        #   Stream #0:0 -> #0:0 (h264 (native) -> bmp (native))
 
         # if it fails, it has the following in stderr
         # Output file #0 does not contain any stream
@@ -127,7 +127,7 @@ class DroneVision:
             if (line is not None):
                 line_str = line.decode("utf-8")
                 print(line_str)
-                if line_str.find("Stream #0:0 -> #0:0 (h264 (native) -> png (native))") > -1:
+                if line_str.find("Stream #0:0 -> #0:0 (h264 (native) -> bmp (native))") > -1:
                     success = True
                     break
                 if line_str.find("Output file #0 does not contain any stream") > -1:
@@ -142,7 +142,7 @@ class DroneVision:
                     print("Having trouble connecting to the camera 2.  A reboot of the mambo may help.")
                     break
 
-                if line_str.find("Stream #0:0 -> #0:0 (h264 (native) -> png (native))") > -1:
+                if line_str.find("Stream #0:0 -> #0:0 (h264 (native) -> bmp (native))") > -1:
                     success = True
 
         # cleanup our non-blocking readers no matter what happened
@@ -179,7 +179,7 @@ class DroneVision:
         # so find the latest image in the directory and set the index to that
         found_latest = False
         while (not found_latest):
-            path = "%s/image_%06d.png" % (self.imagePath, self.image_index)
+            path = "%s/image_%06d.bmp" % (self.imagePath, self.image_index)
             if (os.path.exists(path)) and (not os.path.isfile(path)):
                 # just increment through it (don't save any of these first images)
                 self.image_index = self.image_index + 1
@@ -191,7 +191,7 @@ class DroneVision:
             # grab the latest image from the ffmpeg stream
             try:
                 # make the name for the next image
-                path = "%s/image_%06d.png" % (self.imagePath, self.image_index)
+                path = "%s/image_%06d.bmp" % (self.imagePath, self.image_index)
                 if (not os.path.exists(path)) and (not os.path.isfile(path)):
                     # print("File %s doesn't exist" % (path))
                     # print(os.listdir(self.imagePath))
@@ -212,7 +212,7 @@ class DroneVision:
 
             except cv2.error:
                 # Assuming its an empty image, so decrement the index and try again.
-                # print("Trying to read an empty png. Let's wait and try again.")
+                # print("Trying to read an empty bmp. Let's wait and try again.")
                 self.image_index = self.image_index - 1
                 continue
 
@@ -238,7 +238,7 @@ class DroneVision:
 
             # put the thread back to sleep for fps
             # sleeping shorter to ensure we stay caught up on frames
-            # time.sleep(1.0 / (3.0 * self.fps))
+            time.sleep(1.0 / (3.0 * self.fps))
 
     def set_user_callback_function(self, user_callback_function=None, user_callback_args=None):
         """
@@ -271,9 +271,6 @@ class DroneVision:
         # kill the ffmpeg subprocess
         self.ffmpeg_process.kill()
 
-
-
         # send the command to kill the vision stream (bebop only)
         if (self.is_bebop):
             self.drone_object.stop_video_stream()
-

@@ -1,5 +1,6 @@
 # my manual
-./idea
+.idea/
+aruco_sample/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
