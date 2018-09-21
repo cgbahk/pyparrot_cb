@@ -12,6 +12,7 @@ import time
 import inspect
 from os.path import join
 import numpy as np
+import yaml
 
 # set this to true if you want to fly for the demo
 testFlying = False
@@ -26,6 +27,17 @@ class UserVision:
         self.face_cascade = cv2.CascadeClassifier(join(data_path, 'haarcascade_frontalface_default.xml'))
         self.eye_cascade = cv2.CascadeClassifier(join(data_path, 'haarcascade_eye.xml'))
         self.smile_cascade = cv2.CascadeClassifier(join(data_path, 'haarcascade_smile.xml'))
+
+        self.path_cal = "/home/truefalse/pyparrot_cb/aruco_calibration"
+        with open(join(self.path_cal, "calibration_.yaml"), 'r') as f:
+            loaded_dict = yaml.load(f)
+        mtx = loaded_dict.get('camera_matrix')
+        dist = loaded_dict.get('dist_coeff')
+        self.mtx = np.array(mtx)
+        # self.dist = np.array(dist)
+        self.dist = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # ignore dist and use default
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+        self.arucoParams = aruco.DetectorParameters_create()
 
     def save_pictures(self, args):
         print("in save pictures on image %d " % self.index)
@@ -119,7 +131,7 @@ class UserVision:
         cv2.imshow('image', img)
         cv2.waitKey(1)
 
-    def detect_aruco(self,args):
+    def detect_aruco(self, args):
         img = self.vision.get_latest_valid_picture()
         if img is None:
             return
@@ -151,6 +163,34 @@ class UserVision:
         cv2.imshow('image', img)
         cv2.waitKey(1)
 
+    def picture_for_calibration(self, args):
+        img = self.vision.get_latest_valid_picture()
+        if img is not None:
+            cv2.imshow('image', img)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('s'):
+                cv2.imwrite('aruco_calibration/%02d.bmp' % self.index, img)
+                print(self.index)
+                self.index += 1
+
+    def draw_axis(self, args):
+        img = self.vision.get_latest_valid_picture()
+        if img is None:
+            return
+
+        corners, ids, rejectedImgPoints = aruco.detectMarkers(img, self.aruco_dict, parameters=self.arucoParams)
+        if corners:
+            rvecs, tvecs, ret = aruco.estimatePoseSingleMarkers(corners, 0.168, self.mtx, self.dist)
+
+            # print("Rotation ", rvecs, "Translation", tvecs)
+            aruco.drawDetectedMarkers(img, corners, ids, (0, 0, 255))
+            # print(ids)
+            for i in range(len(ids)):
+                aruco.drawAxis(img, self.mtx, self.dist, rvecs[i], tvecs[i], 0.1)
+
+        cv2.imshow('image', img)
+        cv2.waitKey(1)
+
     def get_data_path(self):
         full_path = inspect.getfile(cv2)
         short_path_index = full_path.rfind("/")
@@ -177,9 +217,9 @@ if success:
     mambo.smart_sleep(1)
 
     print("Preparing to open vision")
-    mamboVision = DroneVision(mambo, is_bebop=False, buffer_size=3)
+    mamboVision = DroneVision(mambo, is_bebop=False, buffer_size=30)
     userVision = UserVision(mamboVision)
-    mamboVision.set_user_callback_function(userVision.detect_aruco, user_callback_args=None)
+    mamboVision.set_user_callback_function(userVision.draw_axis, user_callback_args=None)
     success = mamboVision.open_video()
     print("Success in opening vision is %s" % success)
 
@@ -210,7 +250,7 @@ if success:
             mambo.safe_land(5)
         else:
             print("Sleeeping for 60 seconds - move the mambo around")
-            mambo.smart_sleep(60)
+            mambo.smart_sleep(300)
 
         # done doing vision demo
         print("Ending the sleep and vision")
