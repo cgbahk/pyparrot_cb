@@ -546,7 +546,6 @@ class Minidrone:
         command_tuple = self.command_parser.get_command_tuple("minidrone", "MediaRecord", "PictureV2")
         return self.drone_connection.send_noparam_command_packet_ack(command_tuple)
 
-
     def ask_for_state_update(self):
         """
         Ask for a full state update (likely this should never be used but it can be called if you want to see
@@ -556,7 +555,6 @@ class Minidrone:
         """
         command_tuple = self.command_parser.get_command_tuple("common", "Common", "AllStates")
         return self.drone_connection.send_noparam_command_packet_ack(command_tuple)
-
 
     def _ensure_fly_command_in_range(self, value):
         """
@@ -571,7 +569,6 @@ class Minidrone:
             return 100
         else:
             return int(value)
-
 
     def fly_direct(self, roll, pitch, yaw, vertical_movement, duration=None):
         """
@@ -609,7 +606,6 @@ class Minidrone:
         else:
             self.drone_connection.send_pcmd_command(command_tuple, my_roll, my_pitch, my_yaw, my_vertical, duration)
 
-
     def open_claw(self):
         """
         Open the claw - note not supposed under wifi since the camera takes the place of the claw
@@ -627,7 +623,6 @@ class Minidrone:
         # print enum_tuple
 
         return self.drone_connection.send_enum_command_packet_ack(command_tuple, enum_tuple, self.sensors.claw_id)
-
 
     def close_claw(self):
         """
@@ -648,7 +643,6 @@ class Minidrone:
 
         return self.drone_connection.send_enum_command_packet_ack(command_tuple, enum_tuple, self.sensors.claw_id)
 
-
     def set_max_vertical_speed(self, value):
         """
         Sets the maximum vertical speed in m/s.  Unknown what the true maximum is but
@@ -667,7 +661,6 @@ class Minidrone:
         param_type_tuple = ['float']
         return self.drone_connection.send_param_command_packet(command_tuple, param_tuple, param_type_tuple)
 
-
     def set_max_tilt(self, value):
         """
         Sets the maximum tilt in degrees.  Ensures you only set positive values.
@@ -685,7 +678,6 @@ class Minidrone:
         param_type_tuple = ['float']
         return self.drone_connection.send_param_command_packet(command_tuple, param_tuple, param_type_tuple)
 
-
     def emergency(self):
         """
         Sends the emergency command to the mambo.  Gets the codes for it from the xml files.  Ensures the
@@ -695,7 +687,6 @@ class Minidrone:
         """
         command_tuple = self.command_parser.get_command_tuple("minidrone", "Piloting", "Emergency")
         self.drone_connection.send_noparam_command_packet_ack(command_tuple)
-
 
     def safe_emergency(self, timeout):
         """
@@ -713,7 +704,6 @@ class Minidrone:
         # now wait until it touches ground before returning
         while ((self.sensors.flying_state != "landed") and (time.time() - start_time < timeout)):
             self.smart_sleep(1)
-
 
     def flat_trim(self):
         """

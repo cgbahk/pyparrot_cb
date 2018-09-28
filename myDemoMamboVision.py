@@ -15,7 +15,7 @@ import numpy as np
 import yaml
 
 # set this to true if you want to fly for the demo
-testFlying = False
+testFlying = True
 
 
 class UserVision:
@@ -198,6 +198,57 @@ class UserVision:
         data_path = join(short_path, "data")
         return data_path
 
+    def follow_aruco(self, args):
+        img = self.vision.get_latest_valid_picture()
+        if img is None:
+            return
+
+        corners, ids, rejectedImgPoints = aruco.detectMarkers(img, self.aruco_dict, parameters=self.arucoParams)
+
+        if corners:  # if detected at least one
+            # find pursuit-marker
+            pursuit_idx = -1
+            for i in range(len(ids)):
+                if ids[i][0] == 0:  # :pursuit-marker id
+                    pursuit_idx = i
+                    break
+
+            if pursuit_idx > -1:  # if pursuit-marker detected
+                rvecs, tvecs, ret = \
+                    aruco.estimatePoseSingleMarkers(corners[pursuit_idx:pursuit_idx + 1], 1, self.mtx, self.dist)
+
+                rvec = rvecs[0]
+                tvec = tvecs[0]
+
+                dx = tvec[0][0]
+                dy = -tvec[0][1]
+                dz = tvec[0][2] - 7
+
+                dx = self.saturate(dx)
+                dy = self.saturate(dy)
+                dz = self.saturate(dz)
+
+                aruco.drawAxis(img, self.mtx, self.dist, rvec, tvec, 0.5)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                str = "dx: %.1f dy: %.1f dz: %.1f" % (dx, dy, dz)
+                cv2.putText(img, str, (10, 30), font, 0.5, (0, 0, 255), 2)
+
+                # move
+                gain = 6
+                mambo.fly_direct(roll=dx * gain, pitch=dz * gain * 0.3, yaw=0, vertical_movement=dy * gain * 1.5, duration=0.1)
+                # mambo.smart_sleep(0.01)
+
+        cv2.imshow('image', img)
+        cv2.waitKey(1)
+
+    def saturate(self, d):
+        saturation = 1.5
+        if d > saturation:
+            return saturation
+        if d < -saturation:
+            return -saturation
+        return d
+
 
 # you will need to change this to the address of YOUR mambo
 mamboAddr = "e0:14:d0:63:3d:d0"
@@ -219,7 +270,7 @@ if success:
     print("Preparing to open vision")
     mamboVision = DroneVision(mambo, is_bebop=False, buffer_size=30)
     userVision = UserVision(mamboVision)
-    mamboVision.set_user_callback_function(userVision.draw_axis, user_callback_args=None)
+    mamboVision.set_user_callback_function(userVision.follow_aruco, user_callback_args=None)
     success = mamboVision.open_video()
     print("Success in opening vision is %s" % success)
 
@@ -234,10 +285,10 @@ if success:
 
             if mambo.sensors.flying_state != "emergency":
                 print("flying state is %s" % mambo.sensors.flying_state)
-                print("Flying direct: going up")
-                mambo.fly_direct(roll=0, pitch=0, yaw=0, vertical_movement=30, duration=1)
+                # print("Flying direct: going up")
+                # mambo.fly_direct(roll=0, pitch=0, yaw=0, vertical_movement=40, duration=1)
 
-                mambo.smart_sleep(60)
+                mambo.smart_sleep(300)
 
                 # print("flip left")
                 # print("flying state is %s" % mambo.sensors.flying_state)
