@@ -222,11 +222,11 @@ class UserVision:
 
                 dx = tvec[0][0]
                 dy = -tvec[0][1]
-                dz = tvec[0][2] - 7
+                dz = tvec[0][2] - 10
 
-                dx = self.saturate(dx)
-                dy = self.saturate(dy)
-                dz = self.saturate(dz)
+                dx = self.saturate(dx, 1.8)
+                dy = self.saturate(dy, 1.8)
+                dz = self.saturate(dz, 3)
 
                 aruco.drawAxis(img, self.mtx, self.dist, rvec, tvec, 0.5)
                 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -234,15 +234,14 @@ class UserVision:
                 cv2.putText(img, str, (10, 30), font, 0.5, (0, 0, 255), 2)
 
                 # move
-                gain = 6
+                gain = 6  # 6
                 mambo.fly_direct(roll=dx * gain, pitch=dz * gain * 0.3, yaw=0, vertical_movement=dy * gain * 1.5, duration=0.1)
                 # mambo.smart_sleep(0.01)
 
         cv2.imshow('image', img)
         cv2.waitKey(1)
 
-    def saturate(self, d):
-        saturation = 1.5
+    def saturate(self, d, saturation):
         if d > saturation:
             return saturation
         if d < -saturation:
