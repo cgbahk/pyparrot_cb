@@ -1,3 +1,10 @@
+* This fork of pyparrot is dirty version of pyparrot, mainly use `myDemoMamboVision.py`
+* `myDemoMamboVision.py` detect aruco marker and display a monster using opengl and follow marker as it moves. Control performance is terrible... due to time delay of video streaming.
+* OpenGL code referred from [this link](https://github.com/ajaymin28/Aruco_python)
+
+
+### vvv original READMD.md vvv
+
 # pyparrot
 Python interface for Parrot Drones
 
